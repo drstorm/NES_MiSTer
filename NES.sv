@@ -200,7 +200,7 @@ video_freak video_freak
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXX XX XXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXX
+// XXXXXXXX XX XXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -235,6 +235,8 @@ parameter CONF_STR = {
 	"d6P1O5,Vertical Crop,Disabled,216p(5x);",
 	"d6P1o36,Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;",
 	"P1o78,Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
+	"P1-;",
+	"P1oF,Old TV,Off,On;",
 	"P1-;",
 	"P1O4,Hide Overscan,Off,On;",
 	"P1ORS,Mask Edges,Off,Left,Both,Auto;",
@@ -1097,8 +1099,8 @@ assign VGA_SL = sl[1:0];
 wire [1:0] reticle;
 wire hold_reset;
 wire ce_pix;
-wire HSync,VSync,HBlank,VBlank;
-wire [7:0] R,G,B;
+wire hsync, vsync, hblank, vblank;
+wire [7:0] r, g, b;
 
 wire [1:0] nes_ce_video = corepaused ? videopause_ce : nes_ce;
 
@@ -1118,13 +1120,52 @@ video video
 	.load_color_index(pal_index),
 	.emphasis(emphasis),
 	.reticle(~status[22] ? reticle : 2'b00),
-	.pal_video(pal_video)
+	.pal_video(pal_video),
+	.HSync(hsync),
+	.VSync(vsync),
+	.HBlank(hblank),
+	.VBlank(vblank),
+	.R(r),
+	.G(g),
+	.B(b)
+);
+
+wire bw_enable = status[47];
+
+wire [7:0] r_bw, g_bw, b_bw;
+wire hsync_bw, vsync_bw, hblank_bw, vblank_bw;
+
+jtframe_wirebw #(.WIN(8), .WOUT(8)) u_wirebw(
+    .clk(CLK_VIDEO),
+    .ce_pix(ce_pix),
+    .r_in(r),
+    .g_in(g),
+    .b_in(b),
+    .HS_in(hsync),
+    .VS_in(vsync),
+    .HB_in(hblank),
+    .VB_in(vblank),
+    .enable(bw_enable),
+    .HS_out(hsync_bw),
+    .VS_out(vsync_bw),
+    .HB_out(hblank_bw),
+    .VB_out(vblank_bw),
+    .r_out(r_bw),
+    .g_out(g_bw),
+    .b_out(b_bw)
 );
 
 video_mixer #(260, 0, 1) video_mixer
 (
 	.*,
 	.freeze_sync(),
+	.R(r_bw),
+	.G(g_bw),
+	.B(b_bw),
+	.HSync(hsync_bw),
+	.VSync(vsync_bw),
+	.HBlank(hblank_bw),
+	.VBlank(vblank_bw),
 	.VGA_DE(vga_de),
 	.hq2x(scale==1),
 	.scandoubler(scale || forced_scandoubler)
